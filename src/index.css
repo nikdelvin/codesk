@@ -1,0 +1,53 @@
+@import "tailwindcss" source(none);
+@source "./";
+
+@theme {
+  --font-sans: "Inter", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "SFMono-Regular", Consolas, monospace;
+  --color-canvas: #f8f9fc;
+  --color-surface: #ffffff;
+  --color-ink: #172032;
+  --color-muted: #647086;
+  --color-line: #e2e6ef;
+  --color-accent: #335cff;
+  --color-tint: #edf1ff;
+}
+
+@layer base {
+  :root { color-scheme: light dark; font-synthesis: none; text-rendering: optimizeLegibility; }
+  body { @apply m-0 bg-canvas font-sans text-ink antialiased; }
+  button, a { -webkit-tap-highlight-color: transparent; }
+  button { @apply cursor-pointer; }
+  button:disabled { @apply cursor-wait opacity-50; }
+  :focus-visible { @apply outline-2 outline-offset-4 outline-accent; }
+  ::selection { background: #cbd8ff; color: #172032; }
+  section[id] { scroll-margin-top: 2rem; }
+}
+
+@layer components {
+  .eyebrow { @apply font-mono text-[10px] font-medium tracking-[0.16em] text-muted uppercase; }
+  .button-primary { @apply inline-flex items-center justify-center gap-3 rounded-lg bg-accent px-5 py-3 text-sm font-medium text-white transition-colors hover:bg-blue-700; }
+  .button-secondary { @apply inline-flex items-center justify-center gap-2 rounded-lg border border-line bg-surface px-3 py-2 font-medium transition-colors hover:bg-tint; }
+  .section-title { @apply text-3xl leading-tight font-semibold tracking-tight sm:text-4xl; }
+}
+
+.state-grid { background-image: radial-gradient(var(--color-line) 1px, transparent 1px); background-size: 18px 18px; }
+.desk-glow { background: radial-gradient(ellipse at center, var(--color-tint), transparent 72%); }
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-canvas: #11151e;
+    --color-surface: #191f2c;
+    --color-ink: #edf1fc;
+    --color-muted: #a6b0c4;
+    --color-line: #30394c;
+    --color-accent: #8da9ff;
+    --color-tint: #232f4b;
+  }
+  .button-primary { background: #335cff; }
+  .button-primary:hover { background: #254bdf; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition: none !important; }
+}
