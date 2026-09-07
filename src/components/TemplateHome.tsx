@@ -28,9 +28,10 @@ export default function TemplateHome({ children }: { children: ReactNode }) {
       <a href="#main" className="sr-only focus:not-sr-only focus:absolute focus:top-3 focus:z-10 focus:bg-surface focus:p-3">Skip to content</a>
       <header className="flex flex-wrap items-center justify-between gap-5 border-b border-line py-6">
         <a href="#" aria-label="CoDesk home"><Brand /></a>
-        <nav aria-label="Main navigation" className="flex items-center gap-5 text-xs font-medium text-muted sm:gap-7 sm:text-sm">
+        <nav aria-label="Main navigation" className="flex flex-wrap items-center gap-x-5 gap-y-3 text-xs font-medium text-muted sm:gap-x-7 sm:text-sm">
           <a className="hover:text-ink" href="#architecture">Architecture</a>
           <a className="hover:text-ink" href="#migrations">Migrations</a>
+          <a className="hover:text-ink" href="https://github.com/nikdelvin/codesk" target="_blank" rel="noopener noreferrer">GitHub <span aria-hidden="true">↗</span></a>
           <a className="text-ink hover:text-accent" href="#setup">Get started <span aria-hidden="true">↗</span></a>
         </nav>
       </header>
@@ -144,7 +145,7 @@ export default function TemplateHome({ children }: { children: ReactNode }) {
       <footer className="flex flex-wrap items-center justify-between gap-5 border-t border-line py-8">
         <Brand />
         <p className="max-w-sm text-xs leading-6 text-muted">CoDesk - your personal AI desk right inside Codex Desktop</p>
-        <a className="text-xs text-muted hover:text-ink" href="#setup">Build something of your own ↗</a>
+        <a className="text-xs text-muted hover:text-ink" href="https://github.com/nikdelvin/codesk" target="_blank" rel="noopener noreferrer">nikdelvin/codesk <span aria-hidden="true">↗</span></a>
       </footer>
     </div>
   )
