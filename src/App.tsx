@@ -1,12 +1,13 @@
 import { usePluginState } from './plugin/usePluginState'
 import { useHost } from './plugin/host'
 import { DISPLAY_NAME } from './plugin/config'
+import { socketMessage } from './example'
 import Brand from './components/Brand'
 import TemplateHome from './components/TemplateHome'
 
 export default function App() {
   const host = useHost()
-  const { value, status } = usePluginState(host.bootstrap)
+  const { value, status } = usePluginState(host.bootstrap, socketMessage)
   const fullscreen = host.mode === 'fullscreen'
 
   const counter = (

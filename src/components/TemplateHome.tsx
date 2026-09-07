@@ -6,8 +6,8 @@ import selfHostedPrompt from '../../migration-prompts/self-hosted.md?url&no-inli
 
 const setupCommand = 'npm ci && npm run setup'
 const folders = [
-  { path: 'src/', label: 'Make it yours', detail: 'Edit App.tsx and components/ for your UI. Style it with Tailwind in index.css.', tag: 'FRONTEND', icon: '01' },
-  { path: 'worker/', label: 'Give it capabilities', detail: 'Define MCP tools in mcp/server.ts. Keep persistent state in codesk.ts.', tag: 'BACKEND', icon: '02' },
+  { path: 'src/', label: 'Make it yours', detail: 'Edit App.tsx for your UI and example.ts for its state schema. Style it with Tailwind in index.css.', tag: 'FRONTEND', icon: '01' },
+  { path: 'worker/', label: 'Give it capabilities', detail: 'Define MCP tools in mcp/server.ts and behavior in example.ts. realtime.ts handles live connections.', tag: 'BACKEND', icon: '02' },
   { path: 'plugin/', label: 'Teach your assistant', detail: 'Edit the manifest and skills/open-plugin/SKILL.md. Setup supplies your chosen name.', tag: 'PLUGIN', icon: '03' },
 ]
 const migrations = [

@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
-import { socketMessage, type Bootstrap, type StateMessage } from '../contracts/plugin'
+import type { z } from 'zod'
+import { SOCKET_PROTOCOL, type Bootstrap, type StateMessage, type ErrorMessage } from '../contracts/plugin'
 import { DISPLAY_NAME } from './config'
 
-export function usePluginState(bootstrap: Bootstrap | null) {
-  const [value, setValue] = useState<StateMessage['value'] | null>(null)
+export function usePluginState<T>(bootstrap: Bootstrap | null, messageSchema: z.ZodType<StateMessage<T> | ErrorMessage>) {
+  const [value, setValue] = useState<T | null>(null)
   const [status, setStatus] = useState(`Open ${DISPLAY_NAME} from the native composer`)
 
   useEffect(() => {
@@ -28,7 +29,7 @@ export function usePluginState(bootstrap: Bootstrap | null) {
       if (stopped) return
       if (Date.parse(bootstrap.expiresAt) <= Date.now()) { expire(); return }
       setStatus(attempts ? 'Reconnecting; showing the last received value' : 'Connecting')
-      const current = new WebSocket(bootstrap.socketUrl, ['codesk.ws', `cap.${bootstrap.capability}`])
+      const current = new WebSocket(bootstrap.socketUrl, [SOCKET_PROTOCOL, `cap.${bootstrap.capability}`])
       socket = current
       let initialized = false
       // Opening the socket is insufficient: require the first authoritative state.
@@ -39,7 +40,7 @@ export function usePluginState(bootstrap: Bootstrap | null) {
         if (typeof event.data !== 'string' || event.data.length > 4096) return
         let data: unknown
         try { data = JSON.parse(event.data) } catch { return }
-        const parsed = socketMessage.safeParse(data)
+        const parsed = messageSchema.safeParse(data)
         if (!parsed.success) return
         const message = parsed.data
         if (message.type === 'error') {
@@ -79,6 +80,6 @@ export function usePluginState(bootstrap: Bootstrap | null) {
       clearConnectionTimers()
       socket?.close(1000, 'View unmounted')
     }
-  }, [bootstrap])
+  }, [bootstrap, messageSchema])
   return { value, status }
 }

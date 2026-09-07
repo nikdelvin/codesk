@@ -1,7 +1,8 @@
 import { McpServer } from '@modelcontextprotocol/server';
 import { createMcpHandler } from 'agents/mcp/server';
 import { z } from 'zod';
-import { digest, mutationInput, newCapability, runInput, PROTOCOL_VERSION } from '../../src/contracts/plugin';
+import { digest, newCapability, runInput, PROTOCOL_VERSION } from '../../src/contracts/plugin';
+import { mutationInput } from '../../src/example';
 import { DISPLAY_NAME, PLUGIN_NAME, PUBLIC_ORIGIN, SOCKET_ORIGIN } from '../../src/plugin/config';
 import { readView } from './view';
 

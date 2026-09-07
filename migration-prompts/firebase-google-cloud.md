@@ -4,7 +4,9 @@ Act as the migration engineer for this CoDesk checkout. Inspect it and propose a
 
 ## Inspect
 
-Read `package.json`, `vite.config.ts`, `wrangler.json`, `app.config.json`, `src/contracts/`, `src/plugin/`, `worker/`, `plugin/`, `scripts/`, and `tests/`. Locate Cloudflare-specific MCP handling, assets, Durable Objects, alarms, storage, and test harnesses. Keep React, Vite, Tailwind, and the MCP Apps bridge.
+Read `package.json`, `vite.config.ts`, `wrangler.json`, `app.config.json`, `src/example.ts`, `src/contracts/`, `src/plugin/`, `worker/`, `plugin/`, `scripts/`, and `tests/`. Locate Cloudflare-specific MCP handling, assets, Durable Objects, alarms, storage, and test harnesses. Keep React, Vite, Tailwind, and the MCP Apps bridge.
+
+Keep application behavior in `worker/example.ts` separate from connection handling in `worker/realtime.ts`. Replace the Cloudflare relay while preserving its authorized snapshot and broadcast behavior. The browser hook receives the application's frame schema from `src/example.ts`; it does not assume a numeric value.
 
 ## Design the replacement
 

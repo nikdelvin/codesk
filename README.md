@@ -80,11 +80,15 @@ Standalone browser preview shows the CoDesk homepage, setup command, architectur
 ## Repository layout
 
 - `src/App.tsx`: counter panel and choice of embedded or standalone presentation.
+- `src/example.ts`: example value schema, initial value, mutation input, and validated socket frames.
 - `src/components/TemplateHome.tsx`: homepage copy, setup instructions, architecture, and migration links.
 - `src/index.css`: Tailwind import, theme tokens, and shared styles.
 - `src/assets/codesk.svg` and `src/components/Brand.tsx`: editable logo and wordmark.
 - `src/plugin/` and `src/contracts/`: MCP Apps host integration, WebSocket hook, public configuration, and shared protocol.
-- `worker/`: MCP registration, packaged HTML loading and `CoDesk` Durable Object.
+- `worker/realtime.ts`: reusable WebSocket relay, capability checks, heartbeat replies, connection limits, and expiration cleanup.
+- `worker/example.ts`: example session state, snapshot creation, serialized mutations, and retry receipts.
+- `worker/codesk.ts`: connects the example to the stable `CoDesk` deployment class.
+- `worker/mcp/`: tool registration and packaged HTML loading.
 - `plugin/`: plugin manifest and operational skill.
 - `scripts/`: configuration, Wrangler deployment, plugin packaging and smoke checks.
 - `tests/`: production Worker, actual Vite routing, browser host and installation fixtures.
@@ -94,7 +98,11 @@ Standalone browser preview shows the CoDesk homepage, setup command, architectur
 
 The browser title is set directly in `index.html`. The configured plugin name still controls the panel heading, MCP tool title, and installed package identity.
 
-`CODESK_DO` is the Worker binding used as `env.CODESK_DO`. It points to the plugin's `CoDesk` Durable Object in `worker/codesk.ts`. Its current methods implement the counter example; replace them with your own state and realtime behavior while keeping the infrastructure name. The `exports.CoDesk` declaration in `wrangler.json` provisions SQLite storage and replaces the legacy tagged `migrations` array. After a deployment using `exports`, future deployments must keep using `exports`. [Durable Object class exports](https://developers.cloudflare.com/durable-objects/reference/durable-objects-migrations/)
+`CODESK_DO` is the Worker binding used as `env.CODESK_DO`. It points to the plugin's `CoDesk` Durable Object in `worker/codesk.ts`. The class selects the application in `worker/example.ts`, which extends the reusable `WebSocketRelay` in `worker/realtime.ts`. The relay accepts connections and sends application-supplied snapshots and broadcasts; it does not import the example or assume a numeric value. Its hibernation and automatic heartbeat replies follow [Cloudflare's WebSocket server example](https://developers.cloudflare.com/durable-objects/examples/websocket-hibernation-server/). No extra library or separately deployed server is required.
+
+`getSnapshot(runId)` supplies the current frame and capability hash, or returns `undefined` for a missing, expired, or incompatible session. The relay checks the capability and sends the snapshot while holding the connection lock. Application mutations use the same lock, commit their state, and then call `broadcast(frame)`. This prevents an update from being lost between subscribing and receiving the first snapshot. The browser hook takes the application's message schema from `src/example.ts`; its reconnect and display logic works with other value shapes. Keep frames within its 4,096-character decoder limit.
+
+The `exports.CoDesk` declaration in `wrangler.json` provisions SQLite storage and replaces the legacy tagged `migrations` array. `npm run setup` already builds and deploys the relay with the app; there is no separate WebSocket provisioning command. After a deployment using `exports`, future deployments must keep using `exports`. [Durable Object class exports](https://developers.cloudflare.com/durable-objects/reference/durable-objects-migrations/)
 
 This template declares a fresh `CoDesk` namespace. Updating a Worker that already has a differently named Durable Object requires an explicit class-rename declaration; changing the class name in code alone does not transfer its existing namespace. Use a new Worker name for a fresh template deployment, or follow Cloudflare's rename procedure for an existing deployment.
 
@@ -105,8 +113,8 @@ To publish your own template, retain `LICENSE` and enable **Template repository*
 To replace the example, update these explicit edit points:
 
 1. Replace the preview in `src/App.tsx` and the example copy in `src/components/TemplateHome.tsx`.
-2. Define your state schema in `src/contracts/plugin.ts`, tool actions in `worker/mcp/server.ts`, and persistence/initial state in `worker/codesk.ts`. Changing the UI alone does not replace the numeric-state behavior. Update receipt comparison and validation when changing the payload shape.
-3. Adapt the example assertions in `tests/state.test.mjs`, `tests/browser.test.mjs`, and `tests/routing.test.mjs`, plus the optional `scripts/verify-example.mjs`. Keep reusable discovery, assets, and installation coverage.
+2. Define your value schema and initial value in `src/example.ts`, tool actions in `worker/mcp/server.ts`, and session behavior/storage in `worker/example.ts`. The relay, host bridge, and shared envelope in `src/contracts/plugin.ts` can stay unchanged. If you rename the application module, update the import in `worker/codesk.ts`; the deployed class and binding names can stay the same. Changing the UI alone does not replace the numeric-state behavior. Update receipt comparison and validation when changing the payload shape, and bump the stored schema version when existing records are incompatible.
+3. Adapt the example assertions in `tests/state.test.mjs`, `tests/browser.test.mjs`, `tests/realtime.test.mjs`, and `tests/routing.test.mjs`, plus the optional `scripts/verify-example.mjs`. Keep reusable discovery, assets, and installation coverage.
 4. Update the example description in this README and any plugin instructions you customize. Then run `npm run verify`, deploy, and refresh the plugin.
 
 Setup, plugin packaging, resource identifiers, and the host bridge have no counter-specific names. Keep server imports out of the browser dependency graph.
@@ -122,6 +130,8 @@ The read-only display starts at `—` and changes only from validated WebSocket 
 - `get_state({ run_id })`: inspect state when needed; never poll for UI updates.
 
 Runs expire after one hour, with at most 256 mutations and four subscribers. Capabilities stay in private bootstrap metadata and are stored as hashes. Sockets negotiate `codesk.ws` plus the capability, accept only heartbeat messages, and receive current state on reconnect. Old stored schemas are rejected; there is no migration adapter.
+
+Closing the panel does not immediately delete its session. The example keeps the latest value, revision, and retry receipts in Durable Object storage until the one-hour expiration, so hibernation and reconnects recover the same state. The alarm closes remaining sockets and removes that session's storage. D1 is optional for applications that need long-lived business data; adding it does not replace the relay's connection routing. If you remove session storage, define how missed updates and reconnects recover before dropping the saved snapshot.
 
 MCP is served at `/mcp`, sockets at `/ws/{runId}`, and the UI at `/`. Unknown paths return 404. HTML is uncached; JS/CSS assets are hashed and immutable. The Worker reads packaged HTML through `ASSETS` and derives `ui://<plugin-name>/app/<html-sha256>/index.html`, so browser assets and host resource identity come from the same build. Already-open panels keep their loaded code.
 
