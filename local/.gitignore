@@ -1,0 +1,8 @@
+node_modules/
+dist/
+.local/
+.plugin-build/
+*.log
+.DS_Store
+*.sqlite*
+runtime-settings.json

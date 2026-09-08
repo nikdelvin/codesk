@@ -35,5 +35,6 @@
   "observability": {
     "enabled": true
   },
-  "upload_source_maps": true
+  "upload_source_maps": true,
+  "account_id": "17d9d9ea4e3eb09eef33f38daaf885bf"
 }

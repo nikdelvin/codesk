@@ -1,0 +1,25 @@
+{
+  "name": "codesk-local",
+  "version": "0.1.0",
+  "license": "MIT",
+  "description": "Open your personal AI desk inside Codex Desktop.",
+  "author": {
+    "name": "nikdelvin"
+  },
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "CoDesk Local",
+    "shortDescription": "Your personal AI desk inside Codex Desktop",
+    "longDescription": "An interactive workspace powered by MCP tools and live state updates.",
+    "developerName": "nikdelvin",
+    "category": "Productivity",
+    "capabilities": [
+      "Interactive",
+      "Write"
+    ],
+    "defaultPrompt": [
+      "Open CoDesk Local"
+    ]
+  },
+  "mcpServers": "./.mcp.json"
+}
