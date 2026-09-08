@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
+import { readFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { join } from 'node:path';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
@@ -23,6 +25,19 @@ try {
   const view = await client.readResource({ uri });
   const origin = new URL(bootstrap.socketUrl).origin.replace('wss:', 'https:');
   assert.deepEqual(view.contents[0]._meta.ui.csp.connectDomains, [origin, origin.replace('https:', 'wss:')]);
+  assert.deepEqual(view.contents[0]._meta.ui.csp.resourceDomains, [origin]);
+  const assets = JSON.parse(readFileSync(join(root, 'dist/ui-assets.json'), 'utf8'));
+  for (const [path, info] of Object.entries(assets)) {
+    assert.ok(view.contents[0].text.includes(`${origin}/${path}`));
+    const response = await fetch(`${origin}/${path}`, { signal: AbortSignal.timeout(15000), redirect: 'error' });
+    assert.equal(response.status, 200);
+    const bytes = Buffer.from(await response.arrayBuffer());
+    assert.equal(createHash('sha256').update(bytes).digest('hex'), info.sha256);
+    assert.equal(bytes.length, info.bytes);
+  }
+  const video = Object.keys(assets).find(path => path.endsWith('.mp4'));
+  const range = await fetch(`${origin}/${video}`, { headers: { Range: 'bytes=0-31' }, signal: AbortSignal.timeout(10000) });
+  assert.equal(range.status, 206); assert.equal((await range.arrayBuffer()).byteLength, 32);
   const health = await fetch(`${origin}/health`, { signal: AbortSignal.timeout(10000), redirect: 'error' });
   assert.equal(health.status, 200);
   socket = new WebSocket(bootstrap.socketUrl, ['codesk.local.ws', `cap.${bootstrap.capability}`], { handshakeTimeout: 10000 });
@@ -42,7 +57,7 @@ try {
     assert.ok(!result.isError, result.content?.[0]?.text);
     await received(value, index + 1);
   }
-  const result = { checkedAt: new Date().toISOString(), plugin: config.pluginName, https: true, wss: true,
+  const result = { checkedAt: new Date().toISOString(), plugin: config.pluginName, https: true, wss: true, assets: 4, videoRange: true,
     revisions: frames.filter(frame => frame.type === 'state').map(({ value, revision }) => ({ value, revision })),
     normalCertificateVerification: true, nativeCodexAcceptance: 'not established by this probe' };
   writeJson(join(root, '.local/tunnel-evidence.json'), result);

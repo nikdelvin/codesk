@@ -141,7 +141,8 @@ test('a standalone checkout packages the configured endpoint and installs with t
   assert.equal(manifest.name, 'daily-desk');
   assert.equal(manifest.interface.displayName, 'Daily Desk');
   assert.equal(manifest.interface.defaultPrompt[0], 'Open Daily Desk');
-  assert.match(manifest.version, /^0\.1\.0\+codex\.\d{14}$/);
+  assert.equal(manifest.version.split('+')[0], JSON.parse(source).version);
+  assert.match(manifest.version, /\+codex\.\d{14}$/);
   assert.equal(readJson(resolve(packagePath, '.mcp.json')).mcpServers[marketplace.name].url,
     'https://my-desk.actual-account.workers.dev/mcp');
   assert.ok(existsSync(resolve(packagePath, 'skills/open-plugin/SKILL.md')));

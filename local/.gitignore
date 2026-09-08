@@ -6,3 +6,6 @@ dist/
 .DS_Store
 *.sqlite*
 runtime-settings.json
+
+# Local browser verification artifacts
+test-results/

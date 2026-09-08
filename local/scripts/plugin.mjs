@@ -14,6 +14,7 @@ export function packagePlugin(destination, config, previousVersion) {
   cpSync(join(root, 'plugin'), destination, { recursive: true });
   cpSync(join(root, 'dist'), join(destination, 'dist'), { recursive: true });
   cpSync(join(root, 'LICENSE'), join(destination, 'LICENSE'));
+  cpSync(join(root, 'licenses'), join(destination, 'licenses'), { recursive: true });
   const manifest = readJson(join(destination, '.codex-plugin/plugin.json'));
   const displayName = name === 'codesk-local' ? 'CoDesk Local' : name.split('-').map(s => s[0].toUpperCase() + s.slice(1)).join(' ');
   let stamp = new Date().toISOString().replace(/\D/g, '').slice(0, 14);

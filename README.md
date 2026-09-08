@@ -39,4 +39,4 @@ Each template contains `src/` for the React UI and state contracts, `plugin/` fo
 
 Read the selected template's README for architecture, commands, persistence, and acceptance checks. [Migration prompts](migration-prompts/) describe additional hosting approaches; they are planning guides, not implemented deployment templates.
 
-[MIT licensed](cloudflare/LICENSE).
+[MIT licensed](LICENSE).

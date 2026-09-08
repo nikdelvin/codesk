@@ -30,3 +30,7 @@ dist-ssr
 !.dev.vars.example
 .env*
 !.env.example
+
+# Local browser verification artifacts
+test-results/
+test-independent.json

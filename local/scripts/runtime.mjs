@@ -1,7 +1,7 @@
 import { setTimeout as delay } from 'node:timers/promises';
 import { join } from 'node:path';
 import { readJson, root, settings, settingsPath } from './project.mjs';
-import { inspectRuntime, request, connectRuntime } from '../dist/library.mjs';
+import { inspectRuntime, request, connectRuntime, loadAssets } from '../dist/library.mjs';
 
 const action = process.argv[2] ?? 'status';
 if (!['status', 'stop', 'restart', 'diagnostics'].includes(action)) throw new Error('Use status, stop, restart, or diagnostics.');
@@ -26,7 +26,7 @@ if (action === 'stop' || action === 'restart') {
 } else {
   console.log(JSON.stringify({ plugin: config.pluginName, dataDir: config.dataDir,
     buildHash: readJson(join(root, 'dist/build.json')).buildHash, runtime: current?.status ?? { phase: 'stopped' },
-    ...(action === 'diagnostics' ? { node: process.version, cloudflaredPath: config.cloudflaredPath,
+    ...(action === 'diagnostics' ? { uiAssets: { verified: loadAssets(join(root, 'dist')).size }, node: process.version, cloudflaredPath: config.cloudflaredPath,
       note: 'Status is sanitized. Runtime logs are kept beside SQLite; bootstrap capabilities and control tokens are not logged.' } : {}),
   }, null, 2));
 }

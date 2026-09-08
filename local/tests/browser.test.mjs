@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { mkdir } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import { chromium } from 'playwright';
 import { fixture, mcp, eventually } from './helpers.mjs';
@@ -21,9 +22,14 @@ test('React uses real socket state in one mount, handles reconnect, and retains 
       constructor(url, protocols) { super(String(url).replace(remoteWs, localWs), protocols); window.sockets.push(this); }
     };
   }, { localWs, remoteWs });
+  const resourceOrigin = remoteWs.replace('wss:', 'https:');
+  await context.route(`${resourceOrigin}/ui-assets/**`, async route => {
+    const response = await fetch(f.publicUrl + new URL(route.request().url()).pathname);
+    await route.fulfill({ status: response.status, headers: Object.fromEntries(response.headers), body: Buffer.from(await response.arrayBuffer()) });
+  });
   const viewUrl = `${f.publicUrl}/__view`, hostUrl = `${f.publicUrl}/__host`;
   await context.route(viewUrl, route => route.fulfill({ body: view.text, contentType: 'text/html', headers: {
-    'Content-Security-Policy': `default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; connect-src ${localWs};`,
+    'Content-Security-Policy': `default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: ${resourceOrigin}; media-src ${resourceOrigin}; font-src ${resourceOrigin}; connect-src ${localWs};`,
   } }));
   await context.route(hostUrl, route => route.fulfill({ contentType: 'text/html', body:
     '<!doctype html><iframe sandbox="allow-scripts allow-same-origin" style="width:100%;height:550px;border:0"></iframe>' }));
@@ -75,9 +81,17 @@ test('React uses real socket state in one mount, handles reconnect, and retains 
   await context.setOffline(false); await rendered(42);
   assert.ok(await output.evaluate((current, original) => current === original, element));
   assert.deepEqual(errors, []);
-  assert.ok(requests.every(url => [viewUrl, hostUrl].includes(url)), 'The self-contained panel requests no external assets');
+  assert.ok(requests.every(url => [viewUrl, hostUrl].includes(url) || url.startsWith(resourceOrigin + '/ui-assets/')), 'Only manifest assets from this runtime may be fetched');
+  await frame.evaluate(() => document.fonts.ready);
+  assert.equal(await frame.locator('.rain-container').count(), 0);
+  assert.equal(await frame.locator('.lines-1, .lines-2').count(), 2);
+  assert.ok(await frame.evaluate(() => document.fonts.check('400 16px Outfit')));
   const standalone = await context.newPage(); await standalone.goto(f.publicUrl);
-  for (const width of [375, 1280]) {
+  await standalone.evaluate(() => document.fonts.ready);
+  await standalone.setViewportSize({ width: 800, height: 600 });
+  await mkdir('test-results', { recursive: true });
+  await standalone.screenshot({ path: 'test-results/codesk-local.png' });
+  for (const width of [320, 390, 1024, 1440]) {
     await standalone.setViewportSize({ width, height: 900 });
     assert.ok(await standalone.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
     assert.equal(await standalone.locator('output').textContent(), '—');

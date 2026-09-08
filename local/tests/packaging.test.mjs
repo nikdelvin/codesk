@@ -12,6 +12,7 @@ import { temporary, configuration, fixture, mcp } from './helpers.mjs';
 test('packaged stdio loads without source or node_modules from another cwd', async t => {
   const f = await fixture(t), destination = join(f.directory, 'plugins/codesk-local');
   packagePlugin(destination, f.settings);
+  assert.match(readFileSync(join(destination, 'licenses/outfit-OFL.txt'), 'utf8'), /SIL OPEN FONT LICENSE/);
   assert.ok(!existsSync(join(destination, 'node_modules'))); assert.ok(!existsSync(join(destination, 'src')));
   const config = readJson(join(destination, '.mcp.json')).mcpServers['codesk-local'];
   assert.equal(config.command, process.execPath);

@@ -57,11 +57,11 @@ Panel → HTTPS/WSS → Quick Tunnel → loopback public HTTP/WS listener
 
 All MCP processes for an installation share one runtime and tunnel. A separate tiny `runtime-lock.sqlite` file holds an exclusive OS-managed lock; it contains no application state and is never deleted to recover a lock. The OS releases ownership when the process exits, including after a crash. An authenticated runtime descriptor provides discovery without trusting a PID or exposing its control token publicly.
 
-MCP startup waits only for the local runtime. Tunnel startup happens asynchronously. Panel openings and resource reads wait up to 45 seconds for its HTTPS health check, then fail with an actionable error. Persistent state inspection and mutations remain local even when the tunnel is unavailable.
+MCP startup waits only for the local runtime. Tunnel startup happens asynchronously. The runtime checks publication of each new tunnel hostname through Cloudflare's DNS-over-HTTPS service before its first system DNS lookup, avoiding an early `NXDOMAIN` being cached by the computer or router. It then requires an ordinary HTTPS health check through the system resolver, with normal certificate validation and the expected runtime identity. Panel openings and resource reads wait up to 45 seconds for readiness, then fail with an actionable error. Persistent state inspection and mutations remain local even when the tunnel is unavailable.
 
 The public listener serves only `/`, `/index.html`, `/health`, and subscription-only `/ws/{runId}`. Administrative and mutation operations use a separate bearer-authenticated loopback listener that is never tunneled. Public health reports runtime/generation identity, not saved data or credentials.
 
-Each public address has a generation ID. MCP resource URIs include the build hash and generation, and the runtime supplies exact HTTPS/WSS CSP origins with the self-contained HTML. Temporary hostnames are not embedded in builds. A cached resource from an older generation fails explicitly instead of silently loading mismatched connection metadata.
+Each public address has a generation ID. MCP resource URIs include the build hash and generation, and the runtime supplies exact HTTPS/WSS CSP origins with inline application HTML and packaged UI assets. Temporary hostnames are not embedded in builds. A cached resource from an older generation fails explicitly instead of silently loading mismatched connection metadata.
 
 The runtime stays alive while any MCP client or panel socket is connected. Once both counts reach zero, it shuts down after 60 seconds. Keepalive detects dead peers. A child watchdog owns cloudflared and terminates it if the runtime dies abruptly. A tunnel-process failure triggers at most three replacement attempts with 1-, 2-, and 4-second backoff. Startup and readiness failures appear in diagnostics.
 
@@ -99,7 +99,7 @@ When changing value types, update the SQLite schema and migrations, retry compar
 
 ## Acceptance
 
-See the dated [implementation verification](VERIFICATION.md) for the checks completed on this template and the remaining native-host acceptance boundary.
+See the dated [implementation verification](../VERIFICATION.md) for the checks completed on this template and the remaining native-host acceptance boundary.
 
 `npm run verify` checks storage transactions, persistence, retries, deletion, isolation, process election/restarts, stale metadata, tunnel failure, watchdog cleanup, packaged startup, installation updates, CSP/resource generations, and browser rendering. The browser uses an explicitly identified host fixture and real local sockets. `verify:tunnel` separately uses a real Quick Tunnel with ordinary certificate verification and writes sanitized `.local/tunnel-evidence.json`.
 
@@ -110,6 +110,24 @@ Native Codex acceptance is a separate check:
 3. Close/restart the runtime and Codex. In a fresh task, list runs and resume the recorded run. Verify value 3 and its revision are preserved.
 4. Delete that test run only after explicitly requesting deletion, then verify its subscriptions close.
 
-Successful MCP receipts, a browser fixture, and a trusted WSS smoke test do not by themselves prove native rendering or fullscreen behavior. macOS is the initial validation platform; the Node scripts and download manifest include macOS arm64/x64, Linux arm64/x64, and Windows x64, with other platforms requiring an installed cloudflared binary.
+Successful MCP receipts, a browser fixture, and a trusted WSS smoke test do not by themselves prove native rendering or fullscreen behavior. The Node scripts and automatic binary download manifest target macOS arm64/x64, Linux arm64/x64, and Windows x64. The GitHub verification matrix covers macOS, Linux and Windows; an added matrix is not evidence that those remote jobs have passed. Other platforms require an available cloudflared binary.
 
 [MIT licensed](LICENSE).
+
+## Visual assets and website
+
+The counter uses the shared dark styling and animated background. Its standalone browser view is unconnected. Marketing lives in the independent `codesk-site` Astro repository. Set `VITE_WEBSITE_URL` to its assigned hostname; the Local tunnel origin stays runtime-selected.
+
+The installation includes inline browser JS/CSS plus four hash-addressed files in `dist/ui-assets/`. Startup validates their bytes against `ui-assets.json`. Exact public asset routes support GET/HEAD, font CORS and video byte ranges; they expose no control APIs and do not extend runtime lifetime. The recursive build identity includes every asset. Installing a changed build requires a fresh panel; ordinary state updates and fullscreen preserve the active panel.
+
+`node scripts/verify-asset-tunnel.mjs` performs an isolated live HTTPS/WSS asset check and tunnel replacement using temporary data. Add `--browser` to also check the public preview's video/fonts, live WSS sequence and replacement from Chromium with normal DNS and TLS; install the test browser with `npm run test:install` first. These are developer acceptance tools, not additional installation steps for end users. The test uses the configured cloudflared executable and preserves the installed runtime. The normal `verify:tunnel` probe also checks design assets and MP4 ranges.
+
+The GitHub Verify workflow also has a manual `live_tunnel` option. It automatically configures an isolated test installation and runs the browser/tunnel check on each Local matrix OS without installing a plugin into Codex. Ordinary push/PR tests remain independent of Quick Tunnel service availability.
+
+### Tunnel troubleshooting
+
+`TUNNEL_UNAVAILABLE` includes the latest sanitized health-check cause. DNS lookup errors (`ENOTFOUND` / `EAI_AGAIN`), certificate failures, connection errors, timeouts and non-200 HTTP responses are reported separately. The SQLite experimental warning is unrelated to tunnel readiness.
+
+The isolated asset test prints its temporary runtime's status before cleanup. A subsequent `npm run diagnostics` reports the configured installed runtime, so it cannot recover a completed isolated test's status.
+
+DNS publication checks and startup retries are automatic on all supported platforms. Installation does not ask users to change DNS servers, flush caches, edit hosts files, install certificates or configure a Cloudflare account. The publication check uses [Cloudflare's DNS-over-HTTPS API](https://developers.cloudflare.com/1.1.1.1/encryption/dns-over-https/make-api-requests/dns-json/); its answers do not override addresses used by Node or the browser. Rebuild with `npm run build` before rerunning the test to use the latest runtime. A publication-service outage, blocked tunnel traffic or provider failure still produces a bounded diagnostic error; Quick Tunnels do not provide an availability guarantee.

@@ -4,8 +4,6 @@
 
 <p align="center"><strong>Your personal AI desk right inside Codex Desktop.</strong></p>
 
-<p align="center"><img src="docs/assets/banner.svg" width="1200" alt="CoDesk: from one setup command to your own interactive desk, illustrated with the counter example." /></p>
-
 Build your own interactive Codex plugin. CoDesk brings a React frontend, a live backend, and your assistant’s instructions together in one editable repository. Start with the counter example, then make it your own.
 
 <p align="center">React + Vite · Tailwind CSS · Cloudflare Workers · MCP Apps · <a href="LICENSE">MIT licensed</a></p>
@@ -38,7 +36,7 @@ Your UI, your tools, your cloud. Everything you need to change lives in this rep
 | What to change | Where to edit |
 | --- | --- |
 | Panel UI and styling | `src/App.tsx`, `src/index.css` |
-| Homepage and branding | `src/components/`, `src/assets/codesk.svg` |
+| Counter styling and branding | `src/components/CounterPanel.tsx`, `src/styles/`, `src/assets/codesk.svg` |
 | Application state schema | `src/example.ts` |
 | MCP tools and application behavior | `worker/mcp/server.ts`, `worker/example.ts` |
 | Assistant instructions | `plugin/skills/open-plugin/SKILL.md` |
@@ -83,16 +81,15 @@ The example tools are `open_plugin`, `set_state`, and `get_state`. Values range 
 
 Sessions last **one hour**, with up to **256 mutations** and **four subscribers**. The latest value and receipts survive panel closure and hibernation until expiration. D1 can hold longer-lived application data; the relay still coordinates live connections. This example has no authentication.
 
-Browser preview shows the landing page and an unconnected example. Tests use a host fixture for live updates; after deployment, also check **0 → 5 → 12 → 3** and fullscreen in one native Codex panel.
+Browser preview shows the focused, unconnected counter panel. The marketing site is the independent `codesk-site` Astro repository. Tests use a host fixture for live updates; after deployment, also check **0 → 5 → 12 → 3** and fullscreen in one native Codex panel.
 
 ### Other hosting options
 
 Use the included prompts to plan a migration with your coding agent:
 
-- [Vercel](migration-prompts/vercel.md)
-- [Firebase + Google Cloud](migration-prompts/firebase-google-cloud.md)
-- [Self-hosted](migration-prompts/self-hosted.md)
+- [Vercel](../migration-prompts/vercel.md)
+- [Firebase + Google Cloud](../migration-prompts/firebase-google-cloud.md)
 
-For example: **“Read migration-prompts/vercel.md and plan the migration for this checkout.”** These are planning prompts, not implemented adapters. Review storage, realtime delivery, data migration, and costs before deploying a replacement. Keep the [MIT license](LICENSE) when sharing your version.
+For example: **“Read ../migration-prompts/vercel.md and plan the migration for this checkout.”** These are planning prompts, not implemented adapters. Review storage, realtime delivery, data migration, and costs before deploying a replacement. Keep the [MIT license](LICENSE) when sharing your version.
 
 </details>

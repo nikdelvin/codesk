@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
-import { readFile } from 'node:fs/promises';
+import { readFile, mkdir } from 'node:fs/promises';
 import { resolve, extname } from 'node:path';
 import { chromium } from 'playwright';
 import { startBackend, eventually, assetDir, resourceUri, origin } from './helpers.mjs';
@@ -28,7 +28,7 @@ async function fixture(t, socketHandler) {
     if (path === '/') return route.fulfill({ body: html, contentType: 'text/html' });
     assert.match(path, /^\/assets\/[\w.-]+$/);
     await route.fulfill({ body: await readFile(resolve(assetDir, path.slice(1))),
-      contentType: { '.js': 'application/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.md': 'text/markdown' }[extname(path)],
+      contentType: { '.js': 'application/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.md': 'text/markdown', '.mp4': 'video/mp4', '.webp': 'image/webp', '.woff2': 'font/woff2' }[extname(path)],
       headers: { 'Access-Control-Allow-Origin': '*' } });
   });
   await context.addInitScript(({ origin, localWs }) => {
@@ -44,7 +44,7 @@ async function fixture(t, socketHandler) {
     };
   }, { origin, localWs });
   await context.route(viewUrl, route => route.fulfill({ body: html, contentType: 'text/html', headers: {
-    'Content-Security-Policy': `default-src 'none'; script-src ${origin}; style-src ${origin}; img-src ${origin}; connect-src ${localWs};`,
+    'Content-Security-Policy': `default-src 'none'; script-src ${origin}; style-src 'unsafe-inline' ${origin}; img-src data: ${origin}; font-src ${origin}; media-src ${origin}; connect-src ${localWs};`,
   } }));
   const hostUrl = new URL('/__host', backend.url).href;
   await context.route(hostUrl, route => route.fulfill({ body: '<!doctype html><iframe title="plugin" sandbox="allow-scripts allow-same-origin" style="width:100%;height:500px;border:0"></iframe>', contentType: 'text/html' }));
@@ -137,16 +137,14 @@ test('standard bridge and real sockets update one React mount through fullscreen
   await standalone.waitForFunction(() => document.fullscreenElement === document.documentElement);
   await standalone.getByRole('button', { name: 'Exit fullscreen', exact: true }).click();
   await standalone.waitForFunction(() => document.fullscreenElement === null);
-  await context.grantPermissions(['clipboard-read', 'clipboard-write'], { origin });
-  await standalone.getByRole('button', { name: 'Copy setup command' }).click();
-  assert.equal(await standalone.evaluate(() => navigator.clipboard.readText()), 'npm ci && npm run setup');
-  for (const filename of ['vercel.md', 'firebase-google-cloud.md', 'self-hosted.md']) {
-    const href = await standalone.locator(`a[download="${filename}"]`).getAttribute('href');
-    const response = await backend.mf.dispatchFetch(new URL(new URL(href).pathname, backend.url));
-    assert.equal(response.status, 200);
-    assert.equal(await response.text(), await readFile(resolve(import.meta.dirname, '../migration-prompts', filename), 'utf8'));
-  }
-  for (const width of [375, 1280]) {
+  await standalone.getByText('Unconnected preview', { exact: true }).waitFor();
+  await standalone.evaluate(() => document.fonts.ready);
+  assert.equal(await standalone.locator('.rain-container').count(), 0);
+  assert.equal(await standalone.locator('.lines-1, .lines-2').count(), 2);
+  await standalone.setViewportSize({ width: 800, height: 600 });
+  await mkdir('test-results', { recursive: true });
+  await standalone.screenshot({ path: 'test-results/codesk-cloudflare.png' });
+  for (const width of [320, 390, 1024, 1440]) {
     await standalone.setViewportSize({ width, height: 900 });
     assert.ok(await standalone.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `No overflow at ${width}px`);
     assert.equal(await standalone.locator('output').textContent(), '—');

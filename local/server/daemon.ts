@@ -11,7 +11,9 @@ import { Store } from './storage'
 import { Sessions, state } from './example'
 import { Relay } from './realtime'
 import { resource, renderView, viewUri } from './view'
+import { loadAssets, serveAsset } from './assets'
 import { spawnTunnel, type TunnelFactory, type TunnelHandle } from './tunnel'
+import { createTunnelProbe, describeTunnelFailure } from './tunnel-probe'
 import { PROTOCOL_VERSION } from '../src/contracts/plugin'
 
 type Options = {
@@ -46,11 +48,6 @@ async function body(request: IncomingMessage): Promise<{ action: string; input?:
   try { return JSON.parse(Buffer.concat(chunks).toString()) }
   catch { throw new AppError('INVALID_MESSAGE', 'Invalid JSON request.') }
 }
-async function probe(origin: string, runtimeId: string) {
-  const response = await fetch(`${origin}/health`, { signal: AbortSignal.timeout(3000), redirect: 'error' })
-  if (!response.ok || (await response.json()).runtimeId !== runtimeId) throw new Error('Tunnel not ready')
-}
-
 export async function startDaemon(settings: Settings, options: Options = {}) {
   privateDirectory(settings.dataDir)
   // A separate tiny coordination database holds an OS file lock for the entire
@@ -61,7 +58,9 @@ export async function startDaemon(settings: Settings, options: Options = {}) {
   const directory = options.directory ?? import.meta.dirname
   let store: Store
   let html: string, buildHash: string
+  let assets: ReturnType<typeof loadAssets>
   try {
+    assets = loadAssets(directory)
     html = readFileSync(join(directory, 'index.html'), 'utf8')
     buildHash = JSON.parse(readFileSync(join(directory, 'build.json'), 'utf8')).buildHash as string
     store = new Store(join(settings.dataDir, 'state.sqlite'))
@@ -75,13 +74,14 @@ export async function startDaemon(settings: Settings, options: Options = {}) {
   const clientSockets = new WebSocketServer({ noServer: true, maxPayload: 1024 })
   const alive = new WeakSet<WebSocket>()
   const publicServer = createServer((request, response) => {
+    if (serveAsset(request, response, assets)) return
     if (!['GET', 'HEAD'].includes(request.method ?? '')) { send(response, 404, { error: 'Not found' }); return }
     if (request.url === '/health') { send(response, 200, { runtimeId, generation }); return }
     if (request.url === '/' || request.url === '/index.html') {
       if (!origin || phase !== 'ready') { send(response, 503, { error: 'Tunnel is starting' }); return }
       response.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store',
         'X-Content-Type-Options': 'nosniff', 'Referrer-Policy': 'no-referrer',
-        'Content-Security-Policy': `default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; connect-src ${origin} ${origin.replace('https:', 'wss:')};` })
+        'Content-Security-Policy': `default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: ${origin}; media-src ${origin}; font-src ${origin}; connect-src ${origin} ${origin.replace('https:', 'wss:')};` })
       response.end(request.method === 'HEAD' ? undefined : renderView(html, origin, generation)); return
     }
     send(response, 404, { error: 'Not found' })
@@ -108,7 +108,7 @@ export async function startDaemon(settings: Settings, options: Options = {}) {
     const deadline = Date.now() + (options.readyTimeoutMs ?? 45000)
     while (phase === 'starting' && !stopping && Date.now() < deadline) await delay(50)
     if (phase !== 'ready' || !origin) throw new AppError('TUNNEL_UNAVAILABLE',
-      'The HTTPS/WSS tunnel is unavailable. Check internet access and npm run diagnostics, then retry opening your saved run.')
+      `The HTTPS/WSS tunnel is unavailable. ${tunnelError ?? 'The tunnel has not finished starting.'} Run npm run diagnostics, then retry opening your saved run.`)
     return origin
   }
   const controlServer = createServer((request, response) => {
@@ -187,6 +187,7 @@ export async function startDaemon(settings: Settings, options: Options = {}) {
   updateIdle()
   async function manageTunnel() {
     const backoffs = options.retryDelays ?? [1000, 2000, 4000]
+    const probe = options.probe ?? createTunnelProbe()
     for (let attempt = 0; !stopping && attempt <= backoffs.length; attempt++) {
       if (attempt) {
         tunnelRestarts = attempt; generation = randomUUID(); phase = 'starting'; origin = null
@@ -194,6 +195,7 @@ export async function startDaemon(settings: Settings, options: Options = {}) {
         await delay(backoffs[attempt - 1])
         if (stopping) return
       }
+      let attemptError: string | null = null
       try {
         tunnel = (options.tunnelFactory ?? spawnTunnel)({ binary: settings.cloudflaredPath,
           dataDir: settings.dataDir, origin: publicUrl, workerPath: join(directory, 'tunnel-worker.mjs'), nodePath: settings.nodePath })
@@ -203,17 +205,22 @@ export async function startDaemon(settings: Settings, options: Options = {}) {
         const candidate = await Promise.race([current.origin, delay(Math.max(0, deadline - Date.now()), undefined, { ref: false }).then(() => { throw new Error('Tunnel startup timeout') })])
         let probed = false
         while (!stopping && !exited && Date.now() < deadline) {
-          try { await (options.probe ?? probe)(candidate, runtimeId); probed = true; break }
-          catch { await delay(250) }
+          try { await probe(candidate, runtimeId); probed = true; break }
+          catch (error) {
+            const description = describeTunnelFailure(error)
+            attemptError = description
+            if (description !== tunnelError) { tunnelError = description; notify() }
+            await delay(Math.min(1000, Math.max(0, deadline - Date.now())))
+          }
         }
         if (stopping) { await current.close(); return }
         if (!probed || exited) throw new Error('Tunnel readiness failed')
         origin = candidate; phase = 'ready'; tunnelError = null; notify()
         await current.exited
         if (stopping) return
-      } catch { /* Raw tunnel logs can contain headers; expose only sanitized status. */ }
+      } catch (error) { tunnelError = attemptError ?? describeTunnelFailure(error) }
       await tunnel?.close()
-      tunnelError = 'cloudflared stopped or its public HTTPS health check failed.'
+      tunnelError ??= 'cloudflared stopped or its public HTTPS health check failed.'
       phase = 'starting'; origin = null; relay.disconnect()
     }
     if (!stopping) { phase = 'failed'; notify() }

@@ -58,6 +58,22 @@ test('a client disappearing without a clean detach does not hold the runtime ali
   const client = await connectRuntime(path); client.ws.terminate();
   await eventually(async () => !(await inspectRuntime(config)));
 });
+test('readiness errors retain the latest sanitized health-check cause', async t => {
+  const directory = temporary(t), config = configuration(directory), path = join(directory, 'settings.json');
+  atomicJson(path, config);
+  const daemon = await startDaemon(config, { tunnelFactory: fakeTunnels().factory,
+    probe: async () => { throw new TypeError('private header', { cause: { code: 'ENOTFOUND', message: 'private hostname' } }); },
+    retryDelays: [], readyTimeoutMs: 100 });
+  t.after(() => daemon.close());
+  const client = await connectRuntime(path); t.after(() => client.close());
+  await assert.rejects(client.call('ready'), error => {
+    assert.equal(error.code, 'TUNNEL_UNAVAILABLE');
+    assert.match(error.message, /DNS lookup failed \(ENOTFOUND\)/);
+    assert.ok(!error.message.includes('private'));
+    return true;
+  });
+  assert.equal(daemon.status().error, 'Public tunnel DNS lookup failed (ENOTFOUND).');
+});
 test('watchdog reaps cloudflared after an abrupt daemon death', { skip: process.platform === 'win32', timeout: 15000 }, async t => {
   const directory = temporary(t), config = configuration(directory), path = join(directory, 'settings.json');
   const binary = join(directory, 'fake-cloudflared'), pidPath = join(directory, 'tunnel.pid');
